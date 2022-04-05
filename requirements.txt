@@ -3,3 +3,4 @@ torchvision
 opencv-python==4.5.4.60
 scikit-image
 scipy
+vietocr
