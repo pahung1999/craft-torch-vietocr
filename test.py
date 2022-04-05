@@ -15,7 +15,8 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 
 from PIL import Image
-
+from vietocr.tool.predictor import Predictor
+from vietocr.tool.config import Cfg
 import cv2
 from skimage import io
 import numpy as np
@@ -24,7 +25,7 @@ import imgproc
 import file_utils
 import json
 import zipfile
-
+from ocr import *
 from craft import CRAFT
 
 from collections import OrderedDict
@@ -61,7 +62,6 @@ args = parser.parse_args()
 
 """ For test images in a folder """
 image_list, _, _ = file_utils.get_files(args.test_folder)
-
 result_folder = './result/'
 if not os.path.isdir(result_folder):
     os.mkdir(result_folder)
@@ -72,7 +72,7 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
     # resize
     img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, args.canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=args.mag_ratio)
     ratio_h = ratio_w = 1 / target_ratio
-
+    
     # preprocessing
     x = imgproc.normalizeMeanVariance(img_resized)
     x = torch.from_numpy(x).permute(2, 0, 1)    # [h, w, c] to [c, h, w]
@@ -83,7 +83,6 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
     # forward pass
     with torch.no_grad():
         y, feature = net(x)
-
     # make score and link map
     score_text = y[0,:,:,0].cpu().data.numpy()
     score_link = y[0,:,:,1].cpu().data.numpy()
@@ -96,7 +95,8 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
 
     t0 = time.time() - t0
     t1 = time.time()
-
+    # print("score_text: ",score_text)
+    # print("score_link: ",score_link)
     # Post-processing
     boxes, polys = craft_utils.getDetBoxes(score_text, score_link, text_threshold, link_threshold, low_text, poly)
 
@@ -113,6 +113,7 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
     render_img = np.hstack((render_img, score_link))
     ret_score_text = imgproc.cvt2HeatmapImg(render_img)
 
+    
     if args.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
 
     return boxes, polys, ret_score_text
@@ -128,6 +129,7 @@ if __name__ == '__main__':
         net.load_state_dict(copyStateDict(torch.load(args.trained_model)))
     else:
         net.load_state_dict(copyStateDict(torch.load(args.trained_model, map_location='cpu')))
+
 
     if args.cuda:
         net = net.cuda()
@@ -151,21 +153,71 @@ if __name__ == '__main__':
 
         refine_net.eval()
         args.poly = True
+    
 
-    t = time.time()
-
+    # t = time.time()
+    t= time.perf_counter_ns()
     # load data
+    # with torch.no_grad():
     for k, image_path in enumerate(image_list):
         print("Test image {:d}/{:d}: {:s}".format(k+1, len(image_list), image_path), end='\r')
         image = imgproc.loadImage(image_path)
-
-        bboxes, polys, score_text = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly, refine_net)
-
+        # image=image/255
+        bboxes, polys, score_text = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly)
         # save score text
         filename, file_ext = os.path.splitext(os.path.basename(image_path))
-        mask_file = result_folder + "/res_" + filename + '_mask.jpg'
-        cv2.imwrite(mask_file, score_text)
+        # mask_file = result_folder + "/res_" + filename + '_mask.jpg'
+        # mask_file = result_folder +"/"+ filename + '_mask.jpg'
+        # cv2.imwrite(mask_file, score_text)
 
         file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
 
-    print("elapsed time : {}s".format(time.time() - t))
+        print("elapsed time : {}s".format((time.perf_counter_ns() - t)/(1e+9)))
+
+    #VietOCR
+    config = Cfg.load_config_from_name('vgg_transformer')
+    config['weights'] = 'vietocr_weights/transformerocr.pth'
+    config['cnn']['pretrained']=False
+    config['device'] = 'cuda:0'
+    config['predictor']['beamsearch']=False
+    detector = Predictor(config)
+    
+
+    #Sử dụng Vietocr để đọc các box
+    #Get box from txt file
+    
+    for filename in os.listdir(args.test_folder):
+        img_name, ext = os.path.splitext(filename)
+        full_path=os.path.join(args.test_folder,filename)
+        bboxes=get_bbox(filename,result_folder)
+
+        #Convert box to rectangular
+        bboxes=box_convert(bboxes)
+
+        img=cv2.imread(full_path)
+        #VietOCR
+        
+        raw_text=Vietocr_img(img,bboxes,detector)
+
+        #Arrange
+        g=arrange_bbox(bboxes)
+        rows = arrange_row(g= g)
+
+        # #DrawBox
+        # for box in bboxes:
+        #     x1,x2,y1,y2=box[0],box[1],box[2],box[3]
+        #     bounding_box(x1,y1,x2,y2,img)
+        # plot_img(img,(12,12))
+
+        #Print text
+        res_file = result_folder  + img_name + '_text.txt'
+        with open(res_file, 'a') as f:
+            for row in rows:
+                print([raw_text[i] for i in row])
+                f.write(str([raw_text[i] for i in row])+'\n')
+        
+        
+
+        
+
+
