@@ -176,7 +176,7 @@ if __name__ == '__main__':
 
     #VietOCR
     config = Cfg.load_config_from_name('vgg_transformer')
-    config['weights'] = 'vietocr_weights/transformerocr.pth'
+    config['weights'] = 'weights/transformerocr.pth'
     config['cnn']['pretrained']=False
     config['device'] = 'cuda:0'
     config['predictor']['beamsearch']=False
