@@ -5,6 +5,7 @@ import os
 import matplotlib.pyplot as plt
 
 
+from functools import reduce
 
 
 from PIL import Image
@@ -12,7 +13,7 @@ from PIL import Image
 def Vietocr_img(img,bboxes,detector):
     raw_text=[]
     for box in bboxes:
-        img_box=img[box[2]:box[3],box[0]:box[1]]
+        img_box=img[box[1]:box[3],box[0]:box[2]]
         img_box=Image.fromarray(img_box)
         text=detector.predict(img_box)
         if text==[]:
@@ -59,7 +60,8 @@ def box_convert(bboxes):
         for i in range(0,len(bbox)//2):
             x.append(bbox[i*2])
             y.append(bbox[i*2+1])
-        bbox_new=[min(x),max(x),min(y),max(y)]
+        # bbox_new=[min(x),max(x),min(y),max(y)]
+        bbox_new=[min(x),min(y),max(x),max(y)]
         x1,x2,y1,y2=min(x),max(x),min(y),max(y)
 
         S_new=polygonArea([x1,x2,x2,x1], [y1,y1,y2,y2],4)
@@ -141,6 +143,24 @@ def arrange_row(bboxes=None, g=None, i=None, visited=None):
         indices = indices[order].tolist()
         indices = [int(i) for i in indices]
         return indices
+
+#Sap xep box
+def data_arrange(df):
+    for i in range(len(df)):
+        text_copy=[]
+        box_copy=[]
+        g=arrange_bbox(df["bboxes"][i])
+        rows=arrange_row(g=g)
+        # # rows
+        new_row=reduce(lambda x,y: x+y,rows,[])
+        for j in range(len(new_row)):
+            box_copy.append(df["bboxes"][i][new_row[j]])
+            text_copy.append(df["texts"][i][new_row[j]])
+
+        df["bboxes"][i]=box_copy
+        df["texts"][i]=text_copy
+    return df
+
 
 #Show img
 def plot_img(img,size):

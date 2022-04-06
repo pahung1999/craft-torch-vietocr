@@ -49,7 +49,7 @@ def saveResult(img_file, img, boxes, dirname='./result/', verticals=None, texts=
         # res_file = dirname + "res_" + filename + '.txt'
         # res_img_file = dirname + "res_" + filename + '.jpg'
         res_file = dirname  + filename + '.txt'
-        res_img_file = dirname + filename + '.jpg'
+        # res_img_file = dirname + filename + '.jpg'
 
         if not os.path.isdir(dirname):
             os.mkdir(dirname)
@@ -60,19 +60,19 @@ def saveResult(img_file, img, boxes, dirname='./result/', verticals=None, texts=
                 strResult = ','.join([str(p) for p in poly]) + '\r\n'
                 f.write(strResult)
 
-                poly = poly.reshape(-1, 2)
-                cv2.polylines(img, [poly.reshape((-1, 1, 2))], True, color=(0, 0, 255), thickness=2)
-                ptColor = (0, 255, 255)
-                if verticals is not None:
-                    if verticals[i]:
-                        ptColor = (255, 0, 0)
+                # poly = poly.reshape(-1, 2)
+                # cv2.polylines(img, [poly.reshape((-1, 1, 2))], True, color=(0, 0, 255), thickness=2)
+                # ptColor = (0, 255, 255)
+                # if verticals is not None:
+                #     if verticals[i]:
+                #         ptColor = (255, 0, 0)
 
-                if texts is not None:
-                    font = cv2.FONT_HERSHEY_SIMPLEX
-                    font_scale = 0.5
-                    cv2.putText(img, "{}".format(texts[i]), (poly[0][0]+1, poly[0][1]+1), font, font_scale, (0, 0, 0), thickness=1)
-                    cv2.putText(img, "{}".format(texts[i]), tuple(poly[0]), font, font_scale, (0, 255, 255), thickness=1)
+                # if texts is not None:
+                #     font = cv2.FONT_HERSHEY_SIMPLEX
+                #     font_scale = 0.5
+                #     cv2.putText(img, "{}".format(texts[i]), (poly[0][0]+1, poly[0][1]+1), font, font_scale, (0, 0, 0), thickness=1)
+                #     cv2.putText(img, "{}".format(texts[i]), tuple(poly[0]), font, font_scale, (0, 255, 255), thickness=1)
 
         # Save result image
-        cv2.imwrite(res_img_file, img)
+        # cv2.imwrite(res_img_file, img)
 
